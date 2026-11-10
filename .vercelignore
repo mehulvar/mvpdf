@@ -8,3 +8,5 @@ reader/package.json
 node_modules
 .DS_Store
 samples/*.py
+.env*
+.vercel
