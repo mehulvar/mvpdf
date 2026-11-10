@@ -1,0 +1,10 @@
+compiler
+viewer
+reader/tests
+reader/package.json
+*.md
+.ruff_cache
+.pytest_cache
+node_modules
+.DS_Store
+samples/*.py

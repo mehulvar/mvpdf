@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MVPDF Viewer</title>
+  <link rel="stylesheet" href="styles.css?v=2">
+  <script type="module" src="src/main.js?v=2"></script>
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">mv<span class="brand-dot">pdf</span></span>
+
+    <div id="doc-tools" class="doc-tools" hidden>
+      <div class="segmented" role="group" aria-label="View mode">
+        <button type="button" data-view="pages" aria-pressed="true">Pages</button>
+        <button type="button" data-view="reflow" aria-pressed="false">Reflow</button>
+      </div>
+      <div id="zoom-controls" class="zoom" role="group" aria-label="Zoom">
+        <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+        <button id="zoom-fit" type="button" title="Fit to width"><span id="zoom-label">100%</span></button>
+        <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+      </div>
+    </div>
+
+    <label class="button" for="file-input">Open</label>
+    <input id="file-input" type="file" accept=".mvpdf" hidden>
+  </header>
+
+  <section id="intro" class="intro">
+    <div id="dropzone" class="dropzone">
+      <h1>Drop an <code>.mvpdf</code> file here</h1>
+      <p>Pages, links and AI search, all on your device. Nothing is uploaded.</p>
+      <p class="hint">Convert a PDF first: <code>python -m mvpdf file.pdf</code>
+        · <a href="?src=../samples/solar_energy.mvpdf">try the sample</a></p>
+      <label class="button" for="file-input">Choose file</label>
+    </div>
+  </section>
+
+  <div id="viewer" class="layout" hidden>
+    <aside id="outline" class="outline" aria-label="Outline">
+      <h2>Contents</h2>
+      <ol id="outline-list"></ol>
+    </aside>
+
+    <main class="content">
+      <section class="overview">
+        <h1 id="doc-title"></h1>
+        <p id="doc-meta" class="meta"></p>
+        <details class="insights" open>
+          <summary>AI summary &amp; topics</summary>
+          <p id="doc-summary" class="summary"></p>
+          <ul id="doc-tags" class="tags" aria-label="Key topics"></ul>
+        </details>
+        <form id="search-form" class="search" role="search">
+          <input id="search-input" type="search" placeholder="Ask about this document…"
+                 autocomplete="off" aria-label="Search by meaning">
+          <button class="button" type="submit">Search</button>
+        </form>
+        <ol id="results" class="results" aria-live="polite"></ol>
+      </section>
+
+      <div id="pages" class="pages"></div>
+      <article id="reflow" class="reflow" hidden></article>
+    </main>
+  </div>
+
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+</body>
+</html>

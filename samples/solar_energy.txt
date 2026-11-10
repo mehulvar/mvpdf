@@ -1,0 +1,25 @@
+How Solar Power Works
+
+Solar panels convert sunlight directly into electricity using photovoltaic cells. Each cell is made of layers of silicon that have been treated so that one side carries a negative charge and the other a positive charge. When photons from sunlight strike the cell, they knock electrons loose, and the electric field between the layers pushes those electrons into a circuit as direct current.
+
+An inverter is needed before that power can run a typical home. Household appliances and the electrical grid use alternating current, so the inverter flips the direction of the current many times per second. Modern inverters also monitor panel output and shut the system down safely during a grid outage.
+
+Efficiency and Cost
+
+The efficiency of a panel describes how much of the incoming sunlight becomes usable electricity. Commercial silicon panels usually convert between eighteen and twenty-three percent of sunlight. Laboratory cells that stack several materials on top of each other have passed forty percent, but they remain too expensive for rooftops.
+
+The cost of solar electricity has fallen by roughly ninety percent over the last decade. Cheaper manufacturing, larger factories, and simpler installation have all contributed. In many sunny regions, building a new solar farm is now cheaper than running an existing coal plant.
+
+Storage and the Grid
+
+Sunlight is not available at night or during heavy cloud cover, so storage matters. Lithium-ion batteries can store excess daytime energy and release it in the evening when demand peaks. Utilities are also experimenting with pumped hydro, where surplus power lifts water uphill to be released through turbines later.
+
+Grid operators must balance supply and demand every second. As more solar is added, they rely on forecasting software, flexible gas plants, and long-distance transmission lines that move power from where the sun is shining to where it is needed.
+
+Maintenance
+
+Solar panels have no moving parts and need little upkeep. Rain usually keeps them clean, although dusty climates may require occasional washing. Most manufacturers guarantee that panels will still produce at least eighty percent of their original output after twenty-five years.
+
+Environmental Impact
+
+Producing panels requires energy and mining for materials such as silicon, silver, and aluminum. Even so, a panel typically repays the energy used to make it within two to three years of operation. Recycling programs are growing so that glass, metal, and silicon can be recovered when old panels are retired.
