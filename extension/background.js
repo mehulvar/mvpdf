@@ -1,3 +1,4 @@
+import { extractPage } from "./extract.js";
 import { HOST_NAME, canSave, friendlyError, isViewerUrl, saveRequest } from "./messages.js";
 
 const BADGES = {
@@ -22,11 +23,15 @@ async function showState(tabId, state, title = DEFAULT_TITLE) {
 }
 
 async function extractArticle(tabId) {
-  const [injection] = await chrome.scripting.executeScript({
-    target: { tabId },
-    files: ["vendor/Readability.js", "extract.js"],
-  });
-  return injection?.result;
+  const target = { tabId };
+  // Two steps on purpose: a func's return value is always what comes back, whereas with
+  // several files only one script's completion value is returned.
+  await chrome.scripting.executeScript({ target, files: ["vendor/Readability.js"] });
+  const [injection] = await chrome.scripting.executeScript({ target, func: extractPage });
+  if (injection?.error) throw new Error(`Couldn't read this page: ${injection.error.message ?? injection.error}`);
+  const result = injection?.result;
+  if (result?.problem) console.warn("MVPDF:", result.problem, "- saved the page's visible text instead");
+  return result;
 }
 
 async function saveTab(tab) {
