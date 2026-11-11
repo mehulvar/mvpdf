@@ -12,8 +12,8 @@ from .insights import Embedder
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="mvpdf", description="Convert a PDF (or .txt) into .mvpdf")
-    parser.add_argument("input", type=Path, help="PDF or UTF-8 text file to convert")
+    parser = argparse.ArgumentParser(prog="mvpdf", description="Convert a PDF, saved web page (.html) or .txt into .mvpdf")
+    parser.add_argument("input", type=Path, help="PDF, HTML or UTF-8 text file to convert")
     parser.add_argument("-o", "--output", type=Path, help="Output path (default: <input>.mvpdf)")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="sentence-transformers model")
     parser.add_argument(

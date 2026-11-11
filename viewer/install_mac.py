@@ -1,7 +1,7 @@
-"""Build ~/Applications/MVPDF Viewer.app and register it as the handler for .mvpdf files.
+"""Install the MVPDF Viewer app (opens .mvpdf files) and the browser extension's native host.
 
     python viewer/install_mac.py              install (re-run after moving this repo)
-    python viewer/install_mac.py --uninstall  remove the app
+    python viewer/install_mac.py --uninstall  remove both
 
 Run it with the Python that has the converter's dependencies; that interpreter is baked
 into the app so double-clicking a PDF "Open With > MVPDF Viewer" can convert it too.
@@ -10,7 +10,11 @@ into the app so double-clicking a PDF "Open With > MVPDF Viewer" can convert it 
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
+import json
 import plistlib
+import shlex
 import shutil
 import subprocess
 import sys
@@ -23,6 +27,13 @@ DOC_UTI = "com.mvpdf.document"
 APP_PATH = Path.home() / "Applications" / f"{APP_NAME}.app"
 VIEWER_SCRIPT = Path(__file__).resolve().parent / "mvpdf_viewer.py"
 LOG_FILE = Path.home() / "Library" / "Logs" / "MVPDF" / "app.log"
+EXTENSION_DIR = Path(__file__).resolve().parents[1] / "extension"
+NATIVE_HOST_SCRIPT = Path(__file__).resolve().parent / "native_host.py"
+NATIVE_HOST_NAME = "com.mvpdf.host"
+SUPPORT_DIR = Path.home() / "Library" / "Application Support"
+HOST_LAUNCHER = SUPPORT_DIR / "MVPDF" / "mvpdf-native-host"
+# Chrome always; the others only when that browser is installed.
+BROWSER_DIRS = ("Google/Chrome", "Chromium", "BraveSoftware/Brave-Browser", "Microsoft Edge", "Vivaldi")
 LSREGISTER = Path(
     "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
     "LaunchServices.framework/Support/lsregister"
@@ -99,6 +110,57 @@ def patch_info_plist(app: Path) -> None:
         plistlib.dump(updated, handle)
 
 
+def extension_id(public_key_b64: str) -> str:
+    """Chrome's ID for an extension with this manifest "key": SHA-256, first 32 hex digits as a-p."""
+    digest = hashlib.sha256(base64.b64decode(public_key_b64)).hexdigest()[:32]
+    return digest.translate(str.maketrans("0123456789abcdef", "abcdefghijklmnop"))
+
+
+def host_launcher_source(python: str) -> str:
+    log = Path.home() / "Library" / "Logs" / "MVPDF" / "native-host.log"
+    return (
+        "#!/bin/sh\n"
+        f"mkdir -p {shlex.quote(str(log.parent))}\n"
+        f'exec {shlex.quote(python)} {shlex.quote(str(NATIVE_HOST_SCRIPT))} "$@" 2>>{shlex.quote(str(log))}\n'
+    )
+
+
+def host_manifest(ext_id: str) -> dict:
+    return {
+        "name": NATIVE_HOST_NAME,
+        "description": "MVPDF converter for the Save as MVPDF extension",
+        "path": str(HOST_LAUNCHER),
+        "type": "stdio",
+        "allowed_origins": [f"chrome-extension://{ext_id}/"],
+    }
+
+
+def host_manifest_paths() -> list[Path]:
+    browsers = [SUPPORT_DIR / name for name in BROWSER_DIRS]
+    present = [d for i, d in enumerate(browsers) if i == 0 or d.is_dir()]
+    return [d / "NativeMessagingHosts" / f"{NATIVE_HOST_NAME}.json" for d in present]
+
+
+def install_native_host(python: str) -> str:
+    key = json.loads((EXTENSION_DIR / "manifest.json").read_text())["key"]
+    ext_id = extension_id(key)
+    HOST_LAUNCHER.parent.mkdir(parents=True, exist_ok=True)
+    HOST_LAUNCHER.write_text(host_launcher_source(python))
+    HOST_LAUNCHER.chmod(0o755)
+    manifest = json.dumps(host_manifest(ext_id), indent=2)
+    for path in host_manifest_paths():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(manifest)
+    return ext_id
+
+
+def uninstall_native_host() -> None:
+    for path in (*host_manifest_paths(), HOST_LAUNCHER):
+        if path.exists():
+            path.unlink()
+            print(f"Removed {path}")
+
+
 def run(*cmd: str) -> None:
     subprocess.run(cmd, check=True, capture_output=True, text=True)
 
@@ -118,9 +180,12 @@ def install(python: str) -> None:
             shutil.rmtree(APP_PATH)
         shutil.move(str(built), APP_PATH)
     run(str(LSREGISTER), "-f", str(APP_PATH))
+    ext_id = install_native_host(python)
     print(f"Installed {APP_PATH}")
     print("Double-click any .mvpdf file to open it in a browser tab.")
     print("Right-click a PDF > Open With > MVPDF Viewer to convert and open it.")
+    print(f"\nBrowser extension (ID {ext_id}): open chrome://extensions, turn on Developer mode,")
+    print(f"click 'Load unpacked' and pick {EXTENSION_DIR}")
 
 
 def uninstall() -> None:
@@ -128,8 +193,7 @@ def uninstall() -> None:
         subprocess.run([str(LSREGISTER), "-u", str(APP_PATH)], check=False, capture_output=True)
         shutil.rmtree(APP_PATH)
         print(f"Removed {APP_PATH}")
-    else:
-        print("Nothing to remove.")
+    uninstall_native_host()
 
 
 def main() -> int:

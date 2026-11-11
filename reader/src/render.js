@@ -1,7 +1,7 @@
 // Reflow view, overview panel, outline and search results.
 // All document text goes through textContent, never innerHTML.
 
-import { itemText } from "./document.js";
+import { itemText, safeHref } from "./document.js";
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -87,15 +87,29 @@ export function highlightFlow(container, hits) {
   });
 }
 
+/** A saved web page links back to where it came from; a file name stays plain text. */
+function sourceNode(source) {
+  const href = /^https?:/i.test(source ?? "") ? safeHref(source) : null;
+  if (!href) return source;
+  const link = el("a", "source-link", new URL(href).hostname.replace(/^www\./, ""));
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.title = href;
+  return link;
+}
+
 export function renderOverview(root, doc, onTagClick) {
   root.querySelector("#doc-title").textContent = doc.title;
   const meta = [
     doc.author,
-    doc.source,
+    sourceNode(doc.source),
     doc.pages.length ? `${doc.pages.length} page${doc.pages.length === 1 ? "" : "s"}` : "",
     doc.created && new Date(doc.created).toLocaleDateString(),
   ].filter(Boolean);
-  root.querySelector("#doc-meta").textContent = meta.join(" · ");
+  root.querySelector("#doc-meta").replaceChildren(
+    ...meta.flatMap((part, i) => (i ? [" · ", part] : [part])),
+  );
   root.querySelector("#doc-summary").textContent = doc.summary || "No summary available.";
   root.querySelector("#doc-tags").replaceChildren(...doc.tags.map((tag) => {
     const button = el("button", "tag", tag);

@@ -113,6 +113,7 @@ code { font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }
 .overview { max-width: 860px; margin: 0 auto; padding: 28px var(--gutter) 8px; }
 .overview h1 { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); line-height: 1.2; letter-spacing: -0.02em; }
 .meta { margin: 6px 0 14px; color: var(--muted); font-size: 0.9rem; }
+.source-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .insights { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 16px; }
 .insights summary { cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--muted); }
 .summary { margin: 10px 0; }

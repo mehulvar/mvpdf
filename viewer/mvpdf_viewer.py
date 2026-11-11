@@ -222,17 +222,23 @@ def output_for(pdf: Path) -> Path:
     return FALLBACK_OUTPUT_DIR / f"{pdf.stem}.mvpdf"
 
 
-def convert(pdf: Path) -> Path:
-    output = output_for(pdf)
-    notify(f"Converting {pdf.name} to .mvpdf…")
+def convert(source: Path, output: Path) -> Path:
+    """Run the converter (PDF, HTML or text) in a child process; raises RuntimeError on failure."""
     result = subprocess.run(
-        [sys.executable, "-m", "mvpdf", str(pdf), "-o", str(output)],
+        [sys.executable, "-m", "mvpdf", str(source), "-o", str(output)],
         cwd=COMPILER_DIR, capture_output=True, text=True, check=False,
     )
     if result.returncode != 0:
         detail = (result.stderr.strip().splitlines() or ["unknown error"])[-1]
-        raise RuntimeError(f"Could not convert {pdf.name}: {detail}")
+        raise RuntimeError(f"Could not convert {source.name}: {detail.removeprefix('error: ')}")
     return output
+
+
+def viewer_url(path: Path) -> str:
+    """Start the service if needed, register the file, and return the tab URL that shows it."""
+    ensure_server()
+    query = urllib.parse.urlencode({"doc": register(path), "name": path.name})
+    return f"{ORIGIN}/?{query}"
 
 
 def open_in_browser(url: str) -> None:
@@ -246,17 +252,16 @@ def open_file(raw_path: str) -> int:
         if not path.is_file():
             raise RuntimeError(f"File not found: {path}")
         if path.suffix.lower() == ".pdf":
-            path = convert(path)
+            notify(f"Converting {path.name} to .mvpdf…")
+            path = convert(path, output_for(path))
         elif path.suffix.lower() != ".mvpdf":
             raise RuntimeError(f"{path.name} is not a .mvpdf or .pdf file")
-        ensure_server()
-        token = register(path)
+        url = viewer_url(path)
     except (RuntimeError, OSError, urllib.error.URLError) as err:
         print(f"error: {err}", file=sys.stderr)
         notify(str(err))
         return 1
-    query = urllib.parse.urlencode({"doc": token, "name": path.name})
-    open_in_browser(f"{ORIGIN}/?{query}")
+    open_in_browser(url)
     return 0
 
 

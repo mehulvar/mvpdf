@@ -1,16 +1,18 @@
-"""Read input files (PDF or plain text) into DocumentParts."""
+"""Read input files (PDF, saved web pages, plain text) into DocumentParts."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Callable
 
 from .chunking import MIN_CHUNK_CHARS, split_document
 from .document import DocumentParts
+from .html_source import html_to_pdf
 from .pdf_flow import build_flow, page_items, search_chunks
 from .pdf_pages import convert_page
 
-SUPPORTED_SUFFIXES = (".pdf", ".txt")
+SUPPORTED_SUFFIXES = (".pdf", ".html", ".htm", ".txt")
 ProgressFn = Callable[[int, int], None]
 
 
@@ -63,7 +65,10 @@ def _open_pdf(path: Path):
 
 
 def read_pdf(path: Path, progress: ProgressFn = lambda done, total: None) -> DocumentParts:
-    doc = _open_pdf(path)
+    return _read_pdf_document(_open_pdf(path), path, progress)
+
+
+def _read_pdf_document(doc, path: Path, progress: ProgressFn) -> DocumentParts:
     pages, resources, images, raw_items = [], [], {}, []
     with doc:
         for index, page in enumerate(doc):
@@ -118,12 +123,25 @@ def read_txt(path: Path) -> DocumentParts:
     )
 
 
+def read_html(path: Path, progress: ProgressFn = lambda done, total: None) -> DocumentParts:
+    """A saved article: laid out as pages, then read exactly like a PDF."""
+    try:
+        html = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as err:
+        raise ValueError(f"{path.name} is not valid UTF-8 HTML") from err
+    doc, info = html_to_pdf(html, _title_from_name(path))
+    parts = _read_pdf_document(doc, path, progress)
+    return replace(parts, source=info.source or path.name)
+
+
 def read_source(path: Path, progress: ProgressFn = lambda done, total: None) -> DocumentParts:
     if not path.is_file():
         raise FileNotFoundError(f"Input file not found: {path}")
     suffix = path.suffix.lower()
     if suffix == ".pdf":
         return read_pdf(path, progress)
+    if suffix in (".html", ".htm"):
+        return read_html(path, progress)
     if suffix == ".txt":
         return read_txt(path)
     raise ValueError(f"Unsupported input {suffix or '(none)'}; expected one of {SUPPORTED_SUFFIXES}")

@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Save as MVPDF",
+  "version": "1.0.0",
+  "description": "Save the article you're reading as an .mvpdf file: exact pages, reflow, links and search by meaning, all on your computer.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2drlFzVTQha1TXb5sSFGegFSqHRl091s4at1WzUjw3q/EIkeOgPvtJg5UDDhEQWRrtCkXioOwarD4mJpxGapaJbbJyMQpYoV81Z2+xH+VD9cGZ9/iz6RiYkmnoLcBwf34Z+27OO7KVvqfSVeAneKXoU6wxY/AyElc2OUZhOBJWMZff5Lj777E8nuFNFIwvZEXnYZ+Q5e9Jx/st5+JIPtjtms+UMQvmtKaZkT4wKUGIlMW70767f2eF3+1tqCch+zBbeYH4hu95EIhDuDoEba5P44gs7TQtOxTgfJcqVrwGtb8u5VQehp8Db4aJGM5tPpArX/d2mq2cE5o2cAyp5zewIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "nativeMessaging"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": {
+    "default_title": "Save as .mvpdf",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png" }
+  },
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "commands": {
+    "_execute_action": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Save this page as .mvpdf" }
+  }
+}

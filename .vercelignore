@@ -10,3 +10,4 @@ node_modules
 samples/*.py
 .env*
 .vercel
+extension

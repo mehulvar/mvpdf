@@ -18,7 +18,26 @@ Then:
 - **Right-click a PDF → Open With → MVPDF Viewer** to convert it next to the original and open it.
 
 Run the installer with the same Python that has the converter's packages. If you move this
-folder, re-run the installer; `--uninstall` removes the app.
+folder, re-run the installer; `--uninstall` removes everything it installed.
+
+## Save web articles as .mvpdf (Chrome, Brave, Edge)
+
+1. Run `python viewer/install_mac.py` (it also registers the extension's native host).
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick `extension/`.
+3. On any article, click the **Save as MVPDF** toolbar button (or press **Alt+Shift+S**).
+
+The article opens in a new tab a few seconds later and is saved to `~/Downloads/<title>.mvpdf`.
+The extension uses [Readability](https://github.com/mozilla/readability) (Firefox Reader View's
+engine) to keep the article and drop ads, menus and comments. Pages, links, images, tables, and a
+real outline from the article's section headings all carry over.
+
+How it fits together: the extension hands the article to `viewer/native_host.py` through Chrome
+native messaging. Chrome only lets the extension ID listed in the host manifest start that
+program; web pages can't reach it. The host converts the article, then registers it with the
+local viewer service. Images are downloaded by the converter only from public internet
+addresses, never from `localhost` or your LAN.
+
+You can also convert a saved page directly: `python -m mvpdf page.html`.
 
 ## Features
 
@@ -69,7 +88,8 @@ declared size.
    MMR, and the tags are KeyBERT-style phrases. The browser runs the matching ONNX model to embed
    your queries.
 
-`.txt` files convert too; they get the reflow view only.
+Web pages (`.html`) are first laid out onto Letter pages by MuPDF, then follow the same steps;
+their outline comes from the article's `<h2>`–`<h4>` headings. `.txt` files get the reflow view only.
 
 ## Without the Mac app
 
@@ -95,4 +115,5 @@ header (DNS rebinding) and cross-site registration attempts, and it shuts down a
 ```bash
 cd compiler && python -m pytest -q --cov=mvpdf   # fake embedder; no model download
 cd reader && npm test                            # node:test, no dependencies
+node --test extension/tests/messages.test.mjs    # extension helpers
 ```
