@@ -20,6 +20,21 @@ export function isViewerUrl(url) {
   }
 }
 
+/** Chrome's PDF viewer has no readable DOM; the converter downloads the file instead. */
+export function isPdf(extracted, tabUrl) {
+  if (extracted?.contentType) return extracted.contentType === "application/pdf";
+  try { // the page couldn't be scripted: go by the URL
+    return new URL(tabUrl).pathname.toLowerCase().endsWith(".pdf");
+  } catch {
+    return false;
+  }
+}
+
+export function pdfRequest(url) {
+  if (!canSave(url)) throw new Error("Only PDFs on the web (http/https) can be saved.");
+  return { type: "save_pdf", url };
+}
+
 export function saveRequest(extracted) {
   if (!extracted?.html?.trim()) throw new Error("Couldn't find readable content on this page.");
   if (extracted.html.length > MAX_HTML_CHARS) throw new Error("This page is too large to save.");

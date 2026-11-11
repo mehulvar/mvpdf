@@ -1,5 +1,7 @@
 import { extractPage } from "./extract.js";
-import { HOST_NAME, canSave, friendlyError, isViewerUrl, saveRequest } from "./messages.js";
+import {
+  HOST_NAME, canSave, friendlyError, isPdf, isViewerUrl, pdfRequest, saveRequest,
+} from "./messages.js";
 
 const BADGES = {
   busy: { text: "…", color: "#6b7280" },
@@ -34,8 +36,19 @@ async function extractArticle(tabId) {
   return result;
 }
 
+async function buildRequest(tab) {
+  let extracted;
+  try {
+    extracted = await extractArticle(tab.id);
+  } catch (err) {
+    if (isPdf(null, tab.url)) return pdfRequest(tab.url); // some viewers can't be scripted
+    throw err;
+  }
+  return isPdf(extracted, tab.url) ? pdfRequest(extracted?.url ?? tab.url) : saveRequest(extracted);
+}
+
 async function saveTab(tab) {
-  const reply = await chrome.runtime.sendNativeMessage(HOST_NAME, saveRequest(await extractArticle(tab.id)));
+  const reply = await chrome.runtime.sendNativeMessage(HOST_NAME, await buildRequest(tab));
   if (!reply?.ok) throw new Error(reply?.error ?? "The converter didn't answer.");
   if (!isViewerUrl(reply.url)) throw new Error("The converter returned an unexpected link.");
   await chrome.tabs.create({ url: reply.url, index: tab.index + 1, openerTabId: tab.id });

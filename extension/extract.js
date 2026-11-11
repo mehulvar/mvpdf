@@ -36,6 +36,10 @@ export function extractPage() {
       .join("");
   }
 
+  if (document.contentType === "application/pdf") {
+    return { url: location.href, contentType: document.contentType };
+  }
+
   let article = null;
   let problem = "";
   if (typeof Readability !== "function") {
@@ -57,5 +61,6 @@ export function extractPage() {
     html: readable ? article.content : visibleTextHtml(),
     readable,
     problem,
+    contentType: document.contentType,
   };
 }

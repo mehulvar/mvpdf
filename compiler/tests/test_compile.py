@@ -99,3 +99,18 @@ def test_cli_defaults_output_next_to_input(tmp_path, embed, monkeypatch):
 def test_cli_reports_errors(tmp_path, capsys):
     assert cli.main([str(tmp_path / "missing.pdf")]) == 1
     assert "not found" in capsys.readouterr().err
+
+
+def test_cli_records_source_url(tmp_path, sample_pdf, embed, monkeypatch):
+    from mvpdf.container import unpack
+
+    monkeypatch.setattr(cli, "load_embedder", lambda name: embed)
+    out = tmp_path / "out.mvpdf"
+    assert cli.main([str(sample_pdf), "-o", str(out), "--source-url", "https://ex.com/a.pdf"]) == 0
+    meta = next(b for b in unpack(out.read_bytes()).values() if b.kind == "META")
+    assert json.loads(meta.data)["source"] == "https://ex.com/a.pdf"
+
+
+def test_cli_rejects_non_web_source_url(sample_pdf):
+    with pytest.raises(SystemExit):
+        cli.main([str(sample_pdf), "--source-url", "javascript:alert(1)"])

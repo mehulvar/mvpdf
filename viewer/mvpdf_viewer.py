@@ -222,10 +222,11 @@ def output_for(pdf: Path) -> Path:
     return FALLBACK_OUTPUT_DIR / f"{pdf.stem}.mvpdf"
 
 
-def convert(source: Path, output: Path) -> Path:
+def convert(source: Path, output: Path, source_url: str | None = None) -> Path:
     """Run the converter (PDF, HTML or text) in a child process; raises RuntimeError on failure."""
+    extra = ["--source-url", source_url] if source_url else []
     result = subprocess.run(
-        [sys.executable, "-m", "mvpdf", str(source), "-o", str(output)],
+        [sys.executable, "-m", "mvpdf", str(source), "-o", str(output), *extra],
         cwd=COMPILER_DIR, capture_output=True, text=True, check=False,
     )
     if result.returncode != 0:

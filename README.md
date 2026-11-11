@@ -20,11 +20,12 @@ Then:
 Run the installer with the same Python that has the converter's packages. If you move this
 folder, re-run the installer; `--uninstall` removes everything it installed.
 
-## Save web articles as .mvpdf (Chrome, Brave, Edge)
+## Save web pages and online PDFs as .mvpdf (Chrome, Brave, Edge)
 
 1. Run `python viewer/install_mac.py` (it also registers the extension's native host).
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked**, pick `extension/`.
-3. On any article, click the **Save as MVPDF** toolbar button (or press **Alt+Shift+S**).
+3. On any article, or any PDF open in the browser, click the **Save as MVPDF** toolbar button
+   (or press **Alt+Shift+S**).
 
 The article opens in a new tab a few seconds later and is saved to `~/Downloads/<title>.mvpdf`.
 The extension uses [Readability](https://github.com/mozilla/readability) (Firefox Reader View's
@@ -36,6 +37,10 @@ native messaging. Chrome only lets the extension ID listed in the host manifest 
 program; web pages can't reach it. The host converts the article, then registers it with the
 local viewer service. Images are downloaded by the converter only from public internet
 addresses, never from `localhost` or your LAN.
+
+For a PDF tab, the converter downloads the PDF itself and converts it page for page (a
+263-page book takes about 15 seconds). PDFs that need you to be signed in won't download,
+because the converter doesn't have your browser's cookies; save those and use Open With.
 
 You can also convert a saved page directly: `python -m mvpdf page.html`.
 

@@ -41,3 +41,18 @@ test("explains a missing native host install", () => {
   assert.equal(friendlyError(new Error("Cannot access contents of url")), "This page can't be saved.");
   assert.equal(friendlyError(new Error("boom")), "boom");
 });
+
+test("detects PDFs by document type, or by URL when the page can't be scripted", async () => {
+  const { isPdf } = await import("../messages.js");
+  assert.ok(isPdf({ contentType: "application/pdf" }, "https://ex.com/view?id=3"));
+  assert.ok(!isPdf({ contentType: "text/html" }, "https://ex.com/paper.pdf"));
+  assert.ok(isPdf(null, "https://ex.com/files/Paper.PDF?dl=1"));
+  assert.ok(!isPdf(null, "https://ex.com/article"));
+  assert.ok(!isPdf(null, "not a url"));
+});
+
+test("builds a PDF save request for web URLs only", async () => {
+  const { pdfRequest } = await import("../messages.js");
+  assert.deepEqual(pdfRequest("https://ex.com/a.pdf"), { type: "save_pdf", url: "https://ex.com/a.pdf" });
+  assert.throws(() => pdfRequest("file:///Users/me/a.pdf"), /http/);
+});

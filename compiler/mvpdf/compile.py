@@ -82,6 +82,9 @@ def compile_file(
     model: str = DEFAULT_MODEL,
     browser_model: str = DEFAULT_BROWSER_MODEL,
     progress: ProgressFn = lambda done, total: None,
+    source_url: str | None = None,
 ) -> CompileResult:
     parts = read_source(source, progress)
+    if source_url:
+        parts = replace(parts, source=source_url)
     return compile_parts(parts, output=output, embed=embed, model=model, browser_model=browser_model)

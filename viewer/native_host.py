@@ -2,6 +2,7 @@
 
 Chrome starts this process when the extension button is clicked and sends one message:
     {"type": "save", "url", "title", "byline", "lang", "html"}   (html = the article, via Readability)
+    {"type": "save_pdf", "url"}                                  (the tab is showing a PDF)
 We convert it to ~/Downloads/<title>.mvpdf, register it with the local viewer service and reply
     {"ok": true, "url": "<viewer tab URL>", "file": "<path>"}   or   {"ok": false, "error": "..."}
 
@@ -18,11 +19,12 @@ import struct
 import sys
 import tempfile
 import urllib.error
+import urllib.request
 from collections.abc import Callable
 from html import escape
 from pathlib import Path
 from typing import BinaryIO
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mvpdf_viewer as viewer  # noqa: E402
@@ -32,6 +34,12 @@ MAX_MESSAGE_BYTES = 32 * 1024 * 1024
 MAX_TITLE_CHARS = 300
 MAX_FILENAME_CHARS = 80
 SAVE_DIR = Path.home() / "Downloads"
+MAX_PDF_BYTES = 300 * 1024 * 1024
+DOWNLOAD_TIMEOUT_SECONDS = 60
+DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+PDF_MAGIC = b"%PDF-"
+PDF_HEADER_WINDOW = 1024  # readers accept junk before the header within the first 1 KB
+USER_AGENT = "Mozilla/5.0 (compatible; mvpdf/1.0)"
 _LENGTH = struct.Struct("=I")
 _UNSAFE_FILENAME = re.compile(r"[^\w\s.,'()&-]+")
 
@@ -72,14 +80,19 @@ def _text(message: dict, key: str, limit: int = MAX_TITLE_CHARS) -> str:
     return " ".join(value.split())[:limit] if isinstance(value, str) else ""
 
 
+def _web_url(message: dict) -> str:
+    url = message.get("url")
+    if not isinstance(url, str) or urlparse(url).scheme not in ("http", "https"):
+        raise MessageError("Only web pages (http/https) can be saved")
+    return url
+
+
 def validate(message: dict) -> dict:
     if message.get("type") != "save":
         raise MessageError("Unknown request")
-    html, url = message.get("html"), message.get("url")
+    html, url = message.get("html"), _web_url(message)
     if not isinstance(html, str) or not html.strip():
         raise MessageError("The page has no readable content")
-    if not isinstance(url, str) or urlparse(url).scheme not in ("http", "https"):
-        raise MessageError("Only web pages (http/https) can be saved")
     return {
         "html": html,
         "url": url,
@@ -112,7 +125,7 @@ def unique_path(directory: Path, stem: str, suffix: str = ".mvpdf") -> Path:
     return candidate
 
 
-Converter = Callable[[Path, Path], Path]
+Converter = Callable[..., Path]  # (source, output[, source_url])
 Publisher = Callable[[Path], str]
 
 
@@ -133,9 +146,64 @@ def save_article(
     return {"ok": True, "url": publish(output), "file": str(output)}
 
 
+def pdf_name(url: str) -> str:
+    """'.../A_Practical_Intro.pdf?x=1' -> 'A Practical Intro'."""
+    stem = unquote(Path(urlparse(url).path).name).removesuffix(".pdf").removesuffix(".PDF")
+    return safe_filename(stem.replace("_", " ")) if stem else (urlparse(url).hostname or "Document")
+
+
+def download_pdf(url: str, dest: Path) -> Path:
+    """Fetch the PDF the tab is showing. Streams to disk with a size cap; checks it's really a PDF.
+
+    This is the page the user is looking at and chose to save, so (unlike article images) private
+    and intranet hosts are allowed. Pages behind a login won't download: we don't have the
+    browser's cookies.
+    """
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    total = 0
+    with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response, \
+            dest.open("wb") as out:
+        while chunk := response.read(DOWNLOAD_CHUNK_BYTES):
+            if total == 0 and PDF_MAGIC not in chunk[:PDF_HEADER_WINDOW]:
+                raise MessageError("That link didn't return a PDF (it may need you to be signed in)")
+            total += len(chunk)
+            if total > MAX_PDF_BYTES:
+                raise MessageError("PDF is too large to save (over 300 MB)")
+            out.write(chunk)
+    if total == 0:
+        raise MessageError("The PDF download was empty")
+    return dest
+
+
+Downloader = Callable[[str, Path], Path]
+
+
+def save_pdf(
+    message: dict,
+    *,
+    save_dir: Path = SAVE_DIR,
+    download: Downloader = download_pdf,
+    convert: Converter = viewer.convert,
+    publish: Publisher = viewer.viewer_url,
+) -> dict:
+    url = _web_url(message)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    output = unique_path(save_dir, pdf_name(url))
+    with tempfile.TemporaryDirectory(prefix="mvpdf-") as tmp:
+        source = download(url, Path(tmp) / f"{output.stem}.pdf")
+        convert(source, output, url)
+    return {"ok": True, "url": publish(output), "file": str(output)}
+
+
+HANDLERS = {"save": save_article, "save_pdf": save_pdf}
+
+
 def handle(message: dict) -> dict:
     try:
-        return save_article(message)
+        handler = HANDLERS.get(message.get("type"))
+        if handler is None:
+            raise MessageError("Unknown request")
+        return handler(message)
     except (MessageError, RuntimeError, OSError, urllib.error.URLError) as err:
         print(f"error: {err}", file=sys.stderr)
         return {"ok": False, "error": str(err)}

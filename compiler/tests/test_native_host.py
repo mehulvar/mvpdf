@@ -106,8 +106,96 @@ def test_handle_reports_errors(monkeypatch):
     def failing(message):
         raise RuntimeError("Could not convert a.html: boom")
 
-    monkeypatch.setattr(host, "save_article", failing)
+    monkeypatch.setitem(host.HANDLERS, "save", failing)
     assert host.handle(GOOD) == {"ok": False, "error": "Could not convert a.html: boom"}
+
+
+def test_handle_rejects_unknown_type():
+    assert host.handle({"type": "rm -rf"}) == {"ok": False, "error": "Unknown request"}
+
+
+def test_handle_dispatches_pdf(monkeypatch):
+    monkeypatch.setitem(host.HANDLERS, "save_pdf", lambda message: {"ok": True, "got": message["url"]})
+    assert host.handle({"type": "save_pdf", "url": "https://ex.com/a.pdf"}) == \
+        {"ok": True, "got": "https://ex.com/a.pdf"}
+
+
+@pytest.mark.parametrize("url, name", [
+    ("https://ex.com/python/A_Practical_Introduction.pdf", "A Practical Introduction"),
+    ("https://ex.com/files/My%20Paper.PDF?dl=1", "My Paper"),
+    ("https://ex.com/", "ex.com"),
+])
+def test_pdf_name(url, name):
+    assert host.pdf_name(url) == name
+
+
+class FakeResponse(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+def serve_bytes(monkeypatch, body: bytes):
+    seen = {}
+
+    def urlopen(request, timeout):
+        seen["ua"] = request.get_header("User-agent")
+        return FakeResponse(body)
+
+    monkeypatch.setattr(host.urllib.request, "urlopen", urlopen)
+    return seen
+
+
+def test_download_pdf_streams_to_disk(monkeypatch, tmp_path):
+    seen = serve_bytes(monkeypatch, b"%PDF-1.7\n" + b"x" * 3000)
+    dest = host.download_pdf("https://ex.com/a.pdf", tmp_path / "a.pdf")
+    assert dest.read_bytes().startswith(b"%PDF-1.7") and dest.stat().st_size == 3009
+    assert "mvpdf" in seen["ua"]
+
+
+@pytest.mark.parametrize("body, error", [
+    (b"<html>Please sign in</html>", "didn't return a PDF"),
+    (b"", "empty"),
+])
+def test_download_pdf_rejects_non_pdf(monkeypatch, tmp_path, body, error):
+    serve_bytes(monkeypatch, body)
+    with pytest.raises(host.MessageError, match=error):
+        host.download_pdf("https://ex.com/a.pdf", tmp_path / "a.pdf")
+
+
+def test_download_pdf_enforces_size_cap(monkeypatch, tmp_path):
+    monkeypatch.setattr(host, "MAX_PDF_BYTES", 10)
+    monkeypatch.setattr(host, "DOWNLOAD_CHUNK_BYTES", 8)
+    serve_bytes(monkeypatch, b"%PDF-1.7 and then some more bytes")
+    with pytest.raises(host.MessageError, match="too large"):
+        host.download_pdf("https://ex.com/a.pdf", tmp_path / "a.pdf")
+
+
+def test_save_pdf_downloads_converts_and_publishes(tmp_path):
+    steps = []
+
+    def download(url, dest):
+        steps.append(("download", url, dest.suffix))
+        dest.write_bytes(b"%PDF-")
+        return dest
+
+    def convert(source, output, source_url=None):
+        steps.append(("convert", source.suffix, output.name, source_url))
+        output.write_bytes(b"mvpdf")
+        return output
+
+    reply = host.save_pdf({"type": "save_pdf", "url": "https://ex.com/Intro_Book.pdf"}, save_dir=tmp_path,
+                          download=download, convert=convert, publish=lambda p: f"viewer:{p.name}")
+    assert steps == [("download", "https://ex.com/Intro_Book.pdf", ".pdf"),
+                     ("convert", ".pdf", "Intro Book.mvpdf", "https://ex.com/Intro_Book.pdf")]
+    assert reply == {"ok": True, "url": "viewer:Intro Book.mvpdf", "file": str(tmp_path / "Intro Book.mvpdf")}
+
+
+def test_save_pdf_rejects_non_web_urls(tmp_path):
+    with pytest.raises(host.MessageError, match="http"):
+        host.save_pdf({"type": "save_pdf", "url": "file:///etc/hosts"}, save_dir=tmp_path)
 
 
 def test_main_replies_over_stdio(monkeypatch):

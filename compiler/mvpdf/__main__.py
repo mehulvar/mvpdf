@@ -5,16 +5,24 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .compile import DEFAULT_BROWSER_MODEL, DEFAULT_MODEL, compile_file, load_embedder
 from .container import ContainerError
 from .insights import Embedder
 
 
+def web_url(value: str) -> str:
+    if urlparse(value).scheme not in ("http", "https"):
+        raise argparse.ArgumentTypeError("must be an http(s) URL")
+    return value
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="mvpdf", description="Convert a PDF, saved web page (.html) or .txt into .mvpdf")
     parser.add_argument("input", type=Path, help="PDF, HTML or UTF-8 text file to convert")
     parser.add_argument("-o", "--output", type=Path, help="Output path (default: <input>.mvpdf)")
+    parser.add_argument("--source-url", type=web_url, help="Where the file came from (shown as a link)")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="sentence-transformers model")
     parser.add_argument(
         "--browser-model",
@@ -52,6 +60,7 @@ def main(argv: list[str] | None = None) -> int:
             model=args.model,
             browser_model=args.browser_model,
             progress=_progress,
+            source_url=args.source_url,
         )
     except (FileNotFoundError, ValueError, ContainerError) as err:
         print(f"error: {err}", file=sys.stderr)
